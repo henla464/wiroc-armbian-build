@@ -16,7 +16,11 @@ ubuntu-*-cloudimg-console.log
 /output/
 /cache/
 /*userpatches*/
-/userpatches
+!/userpatches
+
+/userpatches/*
+!/userpatches/kernel
+!/userpatches/config-wiroc.conf
 
 ### General annoyances ###
 .DS_Store

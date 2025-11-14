@@ -23,6 +23,9 @@ ubuntu-*-cloudimg-console.log
 !/userpatches/config-wiroc.conf
 !/userpatches/
 !/userpatches/overlay
+!/userpatches/config
+!/userpatches/config/kernel
+!/userpatches/config/kernel/linux-sunxi-current.config
 
 ### General annoyances ###
 .DS_Store

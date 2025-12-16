@@ -216,7 +216,7 @@ python3 -m venv env
 source env/bin/activate
 env/bin/pip install -r requirements.txt
 # below filename changes with python version
-sudo pip install ../reedsolomon/dist/reedsolo-2.1.3b1-cp313-cp313-linux_armv7l.whl
+env/bin/pip install ../reedsolomon/dist/reedsolo-2.1.3b1-cp313-cp313-linux_armv7l.whl
 deactivate
 cd /home/chip
 

@@ -1,0 +1,6 @@
+[Match]
+Driver=ath9k_htc
+
+[Link]
+Name=mesh0
+

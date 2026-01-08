@@ -203,13 +203,12 @@ cd /home/chip
 echo "###################################"
 echo "WiRoc-Python-2"
 echo "###################################"
+# needed for pillow
+apt-get -y install libjpeg-dev
 
 wget -O installWiRocPython.py https://raw.githubusercontent.com/henla464/WiRoc-Python-2/master/installWiRocPython.py
 chmod ugo+x installWiRocPython.py
 ./installWiRocPython.py $WiRocPythonVersion NEW
-
-# needed for pillow
-apt-get -y install libjpeg-dev
 
 cd WiRoc-Python-2
 python3 -m venv env

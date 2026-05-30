@@ -1,0 +1,20 @@
+diff --git a/drivers/bluetooth/hci_bcm.c b/drivers/bluetooth/hci_bcm.c
+index 89d4c2224..5dc17c1a4 100644
+--- a/drivers/bluetooth/hci_bcm.c
++++ b/drivers/bluetooth/hci_bcm.c
+@@ -1050,6 +1050,7 @@ static int bcm_gpio_set_device_wakeup(struct bcm_device *dev, bool awake)
+ static int bcm_gpio_set_shutdown(struct bcm_device *dev, bool powered)
+ {
+ 	gpiod_set_value_cansleep(dev->shutdown, powered);
++        msleep(100);
+ 	if (dev->reset)
+ 		/*
+ 		 * The reset line is asserted on powerdown and deasserted
+@@ -1059,6 +1060,7 @@ static int bcm_gpio_set_shutdown(struct bcm_device *dev, bool powered)
+ 		 * description.
+ 		 */
+ 		gpiod_set_value_cansleep(dev->reset, !powered);
++                msleep(200);
+ 	return 0;
+ }
+ 

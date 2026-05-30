@@ -155,6 +155,7 @@ echo "Used by install scripts"
 echo "###################################"
 # needed for install scripts
 #apt-get -y install python3-pip
+apt-get -y install python3-venv
 apt-get -y install python3-requests
 
 echo "###################################"
@@ -169,7 +170,6 @@ chmod ugo+x installWiRocBLEAPI.py
 apt-get -y install libdbus-1-dev
 
 # these are dependencies for PyGObject (installed in requirements.txt)
-apt-get -y install python3-venv
 apt-get -y install libcairo2-dev
 apt-get -y install python3-dev
 apt-get -y install libgirepository1.0-dev
@@ -288,7 +288,6 @@ fi
 echo "###################################"
 echo "update armbianEnv.txt"
 echo "###################################"
-
 if [ "$hwVersion" = "v1Rev1" ] || [ "$hwVersion" = "v2Rev1" ] || [ "$hwVersion" = "v3Rev1" ] || [ "$hwVersion" = "v3Rev2" ]
 then
    if ! grep -Fxq "overlays=uart1 uart3 usbhost1 usbhost2 usbhost3 i2c0" /boot/armbianEnv.txt
@@ -296,11 +295,20 @@ then
        echo "Change overlays"
        sed -i -E "s/(overlays=).*/overlays=uart1 uart3 usbhost1 usbhost2 usbhost3 i2c0/" /boot/armbianEnv.txt
    fi
-else
+fi
+
+if [ "$hwVersion" = "v4Rev1" ] || [ "$hwVersion" = "v6Rev1" ] || [ "$hwVersion" = "v7Rev1" ] || [ "$hwVersion" = "v7Rev2" ]
+then
    if ! grep -Fxq "overlays=uart1 uart2 uart3 usbhost1 usbhost2 usbhost3 i2c0" /boot/armbianEnv.txt
    then
        echo "Change overlays"
        sed -i -E "s/(overlays=).*/overlays=uart1 uart2 uart3 usbhost1 usbhost2 usbhost3 i2c0/" /boot/armbianEnv.txt
+   fi
+else
+   if ! grep -Fxq "overlays=uart1 uart2 uart3 usbhost1 usbhost2 usbhost3 i2c0 spi-enable" /boot/armbianEnv.txt
+   then
+       echo "Change overlays"
+       sed -i -E "s/(overlays=).*/overlays=uart1 uart2 uart3 usbhost1 usbhost2 usbhost3 i2c0 spi-enable/" /boot/armbianEnv.txt
    fi
 fi
 

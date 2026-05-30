@@ -1,4 +1,4 @@
 WiRocDeviceName: WiRoc Device
-WiRocPythonVersion: 1.03
+WiRocPythonVersion: 1.17
 WiRocBLEAPIVersion: 0.15
-WiRocHWVersion: v4Rev1
+WiRocHWVersion: v8Rev2

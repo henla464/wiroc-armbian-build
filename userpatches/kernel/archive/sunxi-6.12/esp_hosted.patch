@@ -4349,10 +4349,10 @@ index 000000000..e9f2876d1
 +}
 diff --git a/drivers/net/wireless/espressif/esp_stats.c b/drivers/net/wireless/espressif/esp_stats.c
 new file mode 100644
-index 000000000..e0e3121fc
+index 000000000..f30c8d068
 --- /dev/null
 +++ b/drivers/net/wireless/espressif/esp_stats.c
-@@ -0,0 +1,208 @@
+@@ -0,0 +1,209 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Espressif Systems Wireless LAN device driver
@@ -4410,6 +4410,7 @@ index 000000000..e0e3121fc
 +	pad_len = sizeof(struct esp_payload_header);
 +	total_len = TEST_RAW_TP__BUF_SIZE + pad_len;
 +	pad_len += SKB_DATA_ADDR_ALIGNMENT - (total_len % SKB_DATA_ADDR_ALIGNMENT);
++	total_len = TEST_RAW_TP__BUF_SIZE + pad_len;
 +
 +	msleep(2000);
 +
@@ -4423,14 +4424,14 @@ index 000000000..e0e3121fc
 +
 +		if (esp_is_tx_queue_paused(priv)) {
 +
-+			tx_skb = esp_if_alloc_skb(adapter, TEST_RAW_TP__BUF_SIZE);
++			tx_skb = esp_if_alloc_skb(adapter, total_len);
 +			if (!tx_skb) {
 +				esp_info("%u adapter->if_ops->alloc_skb failed\n", __LINE__);
 +				msleep(10);
 +				continue;
 +			}
-+			memset(tx_skb->data, 0, TEST_RAW_TP__BUF_SIZE);
-+			tx_skb->len = TEST_RAW_TP__BUF_SIZE;
++			skb_put(tx_skb, total_len);
++			memset(tx_skb->data, 0, total_len);
 +			cb = (struct esp_skb_cb *) tx_skb->cb;
 +			cb->priv = priv;
 +
@@ -5490,7 +5491,7 @@ index 000000000..1f8e7f50f
 +#endif
 diff --git a/drivers/net/wireless/espressif/include/esp_fw_version.h b/drivers/net/wireless/espressif/include/esp_fw_version.h
 new file mode 100644
-index 000000000..844733a27
+index 000000000..7ff3d4dc5
 --- /dev/null
 +++ b/drivers/net/wireless/espressif/include/esp_fw_version.h
 @@ -0,0 +1,14 @@
@@ -5505,7 +5506,7 @@ index 000000000..844733a27
 +#define PROJECT_VERSION_MAJOR_2     0
 +#define PROJECT_VERSION_MINOR       6
 +#define PROJECT_REVISION_PATCH_1    0
-+#define PROJECT_REVISION_PATCH_2    1
++#define PROJECT_REVISION_PATCH_2    2
 +
 +#endif
 diff --git a/drivers/net/wireless/espressif/include/esp_if.h b/drivers/net/wireless/espressif/include/esp_if.h
@@ -5925,10 +5926,10 @@ index 000000000..23dae8343
 +#endif
 diff --git a/drivers/net/wireless/espressif/main.c b/drivers/net/wireless/espressif/main.c
 new file mode 100644
-index 000000000..2da8f75b8
+index 000000000..629154a94
 --- /dev/null
 +++ b/drivers/net/wireless/espressif/main.c
-@@ -0,0 +1,1160 @@
+@@ -0,0 +1,1163 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Espressif Systems Wireless LAN device driver
@@ -5981,6 +5982,9 @@ index 000000000..2da8f75b8
 +
 +module_param(raw_tp_mode, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 +MODULE_PARM_DESC(raw_tp_mode, "Mode chosen to test raw throughput");
++
++module_param(log_level, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++MODULE_PARM_DESC(log_level, "Log level: 1=ERR, 2=WARNING, 3=INFO, 4=DEBUG, 5=VERBOSE");
 +
 +module_param(ota_file, charp, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 +MODULE_PARM_DESC(ota_file, "Ota file to update ESP firmware");
@@ -7091,10 +7095,10 @@ index 000000000..2da8f75b8
 +module_exit(esp_exit);
 diff --git a/drivers/net/wireless/espressif/spi/esp_spi.c b/drivers/net/wireless/espressif/spi/esp_spi.c
 new file mode 100644
-index 000000000..42615729d
+index 000000000..992c82793
 --- /dev/null
 +++ b/drivers/net/wireless/espressif/spi/esp_spi.c
-@@ -0,0 +1,707 @@
+@@ -0,0 +1,714 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
@@ -7175,6 +7179,7 @@ index 000000000..42615729d
 +static irqreturn_t spi_data_ready_interrupt_handler(int irq, void *dev)
 +{
 +	/* ESP peripheral has queued buffer for transmission */
++	esp_verbose("Data ready interrupt: ESP has data\n");
 +	if (spi_context.spi_workqueue)
 +		queue_work(spi_context.spi_workqueue, &spi_context.spi_work);
 +
@@ -7184,6 +7189,7 @@ index 000000000..42615729d
 +static irqreturn_t spi_interrupt_handler(int irq, void *dev)
 +{
 +	/* ESP peripheral is ready for next SPI transaction */
++	esp_verbose("Handshake: ESP ready for transfer\n");
 +	if (spi_context.spi_workqueue)
 +		queue_work(spi_context.spi_workqueue, &spi_context.spi_work);
 +
@@ -7392,8 +7398,10 @@ index 000000000..42615729d
 +
 +	trans_ready = gpio_get_value(HANDSHAKE_PIN);
 +	rx_pending = gpio_get_value(SPI_DATA_READY_PIN);
++	esp_verbose("SPI work: trans_ready=%d rx_pending=%d data_path=%d\n", trans_ready, rx_pending, data_path);
 +
 +	if (!trans_ready) {
++		esp_verbose("SPI work: handshake low, skipping\n");
 +		return;
 +	}
 +
@@ -7404,6 +7412,7 @@ index 000000000..42615729d
 +		if (!tx_skb)
 +			tx_skb = skb_dequeue(&spi_context.tx_q[PRIO_Q_LOW]);
 +		if (tx_skb) {
++			esp_verbose("SPI work: dequeued TX packet, len=%u\n", tx_skb->len);
 +			if (atomic_read(&tx_pending))
 +				atomic_dec(&tx_pending);
 +
@@ -7446,7 +7455,7 @@ index 000000000..42615729d
 +		}
 +
 +		trans.tx_buf = tx_skb->data;
-+		esp_hex_dump_verbose("tx: ", trans.tx_buf, 32);
++		esp_hex_dump_verbose("TX: ", trans.tx_buf, 32);
 +	} else {
 +		tx_skb = esp_spi_alloc_skb(SPI_BUF_SIZE);
 +		if (!tx_skb) {
@@ -7456,6 +7465,7 @@ index 000000000..42615729d
 +		trans.tx_buf = skb_put(tx_skb, SPI_BUF_SIZE);
 +		memset((void *)trans.tx_buf, 0, SPI_BUF_SIZE);
 +	}
++	esp_hex_dump_verbose("TX: ", trans.tx_buf, 32);
 +
 +	rx_skb = esp_spi_alloc_skb(SPI_BUF_SIZE);
 +	if (!rx_skb) {
@@ -7482,6 +7492,7 @@ index 000000000..42615729d
 +		dev_kfree_skb(rx_skb);
 +		dev_kfree_skb(tx_skb);
 +	} else {
++		esp_hex_dump_verbose("RX: ", rx_buf, 32);
 +		/* Free rx_skb if received data is not valid */
 +		if (process_rx_buf(rx_skb))
 +			dev_kfree_skb(rx_skb);

@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Henrik Larsson <henrik.larsson@chenfei.se>
+Date: Thu, 30 Jul 2026 18:16:18 +0000
+Subject: Patching kernel sunxi files
+ arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts to add ethernet
+
+Signed-off-by: Henrik Larsson <henrik.larsson@chenfei.se>
+---
+ arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts | 12 ++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts b/arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts
+index c9b989945ca4..b290542cd8df 100644
+--- a/arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts
++++ b/arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts
+@@ -50,10 +50,11 @@ / {
+ 	model = "FriendlyARM NanoPi NEO Air";
+ 	compatible = "friendlyarm,nanopi-neo-air", "allwinner,sun8i-h3";
+ 
+ 	aliases {
+ 		serial0 = &uart0;
++		ethernet0 = &emac;
+ 	};
+ 
+ 	chosen {
+ 		stdout-path = "serial0:115200n8";
+ 	};
+@@ -240,5 +241,16 @@ &usb_otg {
+ 
+ &usbphy {
+ 	/* USB VBUS is always on */
+ 	status = "okay";
+ };
++
++&emac {
++        phy-handle = <&int_mii_phy>;
++        phy-mode = "mii";
++        status = "okay";
++};
++
++&mdio {
++        status = "okay";
++};
++
+-- 
+Created with Armbian build tools https://github.com/armbian/build
+

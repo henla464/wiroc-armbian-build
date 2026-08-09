@@ -7,5 +7,5 @@ armbian-config --cmd SY207
 cp /root/install.sh /home/chip
 cd /home/chip
 ./install.sh
-shutdown -r 0
+/usr/sbin/shutdown -r 0
 

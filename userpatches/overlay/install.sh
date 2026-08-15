@@ -67,15 +67,10 @@ else
   echo "5: NanoPi+SerialPort+SRR"
   echo "6: NanoPi+SerialPort+SRR with pin headers"
   echo "7: NanoPi+SerialPort+SRR with pin headers (programming pins for SRR)"
+  echo "8: WiRoc H3 SBC v8Rev2"
 
   read hwOption
   WiRocHWVersion="v3Rev2"
-  if [[ $hwOption = 1 ]]; then
-    WiRocHWVersion="v2Rev1"
-  fi
-  if [[ $hwOption = 2 ]]; then
-    WiRocHWVersion="v2Rev2"
-  fi
   if [[ $hwOption = 3 ]]; then
     WiRocHWVersion="v3Rev2"
   fi
@@ -90,6 +85,9 @@ else
   fi
   if [[ $hwOption = 7 ]]; then
     WiRocHWVersion="v7Rev2"
+  fi
+    if [[ $hwOption = 8 ]]; then
+    WiRocHWVersion="v8Rev2"
   fi
 fi
 
@@ -134,6 +132,22 @@ echo "sqlite3"
 echo "###################################"
 apt-get -y install libsqlite3-dev
 apt-get -y install sqlite3
+
+echo "###################################"
+echo "Firmware for ath9k"
+echo "###################################"
+apt-get -y install firmware-ath9k-htc
+
+echo "###################################"
+echo "Enable IP forwarding for wifi mesh and tailscale"
+echo "###################################"
+
+cat > /etc/sysctl.d/99-ipforward.conf <<EOF
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+EOF
+
+sysctl --system
 
 echo "###################################"
 echo "Relink dbus bindings (for BLE)"
@@ -288,21 +302,20 @@ fi
 echo "###################################"
 echo "update armbianEnv.txt"
 echo "###################################"
-if [ "$hwVersion" = "v1Rev1" ] || [ "$hwVersion" = "v2Rev1" ] || [ "$hwVersion" = "v3Rev1" ] || [ "$hwVersion" = "v3Rev2" ]
-then
-   if ! grep -Fxq "overlays=uart1 uart3 usbhost1 usbhost2 usbhost3 i2c0" /boot/armbianEnv.txt
-   then
-       echo "Change overlays"
-       sed -i -E "s/(overlays=).*/overlays=uart1 uart3 usbhost1 usbhost2 usbhost3 i2c0/" /boot/armbianEnv.txt
-   fi
-fi
 
-if [ "$hwVersion" = "v4Rev1" ] || [ "$hwVersion" = "v6Rev1" ] || [ "$hwVersion" = "v7Rev1" ] || [ "$hwVersion" = "v7Rev2" ]
+if [ "$WiRocHWVersion" = "v3Rev2" ]
 then
-   if ! grep -Fxq "overlays=uart1 uart2 uart3 usbhost1 usbhost2 usbhost3 i2c0" /boot/armbianEnv.txt
+   if ! grep -Fxq "overlays=uart1 bt-uart3 usbhost1 usbhost2 usbhost3 i2c0" /boot/armbianEnv.txt
    then
        echo "Change overlays"
-       sed -i -E "s/(overlays=).*/overlays=uart1 uart2 uart3 usbhost1 usbhost2 usbhost3 i2c0/" /boot/armbianEnv.txt
+       sed -i -E "s/(overlays=).*/overlays=uart1 bt-uart3 usbhost1 usbhost2 usbhost3 i2c0/" /boot/armbianEnv.txt
+   fi
+elif [ "$WiRocHWVersion" = "v4Rev1" ] || [ "$WiRocHWVersion" = "v6Rev1" ] || [ "$WiRocHWVersion" = "v7Rev1" ] || [ "$WiRocHWVersion" = "v7Rev2" ]
+then
+   if ! grep -Fxq "overlays=uart1 uart2 bt-uart3 usbhost1 usbhost2 usbhost3 i2c0" /boot/armbianEnv.txt
+   then
+       echo "Change overlays"
+       sed -i -E "s/(overlays=).*/overlays=uart1 uart2 bt-uart3 usbhost1 usbhost2 usbhost3 i2c0/" /boot/armbianEnv.txt
    fi
 else
    if ! grep -Fxq "overlays=uart1 uart2 uart3 usbhost1 usbhost2 usbhost3 i2c0 spi-enable" /boot/armbianEnv.txt
@@ -319,7 +332,7 @@ then
     sed -i '$a param_uart3_rtscts=1' /boot/armbianEnv.txt
 fi
 
-if [ "$hwVersion" = "v1Rev1" ] || [ "$hwVersion" = "v2Rev1" ] || [ "$hwVersion" = "v3Rev1" ] || [ "$hwVersion" = "v3Rev2" ] || [ "$hwVersion" = "v4Rev1" ] || [ "$hwVersion" = "v5Rev1" ] || [ "$hwVersion" = "v6Rev1" ]
+if [ "$WiRocHWVersion" = "v3Rev2" ] || [ "$WiRocHWVersion" = "v4Rev1" ] || [ "$WiRocHWVersion" = "v6Rev1" ]
 then
    :
 else
@@ -333,10 +346,21 @@ else
   fi
 
   if [ ! -f /usr/lib/udev/rules.d/51-udev-rtc.rules ]; then
-    echo "Make symlink to rtc1 which probably is the pcf8563"
-    echo 'SUBSYSTEM=="rtc", KERNEL=="rtc1", SYMLINK+="rtc", OPTIONS+="link_priority=-100"' >> /usr/lib/udev/rules.d/51-udev-rtc.rules
+    echo "Find pcf8563 RTC device"
+    RTC_DEV="rtc1"  # fallback if not found
+    for entry in /sys/class/rtc/rtc*; do
+      if [ -f "$entry/name" ]; then
+        if grep -q "^rtc-pcf8563" "$entry/name"; then
+          RTC_DEV=$(basename "$entry")
+          echo "Found pcf8563 at $RTC_DEV"
+          break
+        fi
+      fi
+    done
+    echo "Make symlink to $RTC_DEV which is the pcf8563"
+    echo "SUBSYSTEM==\"rtc\", KERNEL==\"$RTC_DEV\", SYMLINK+=\"rtc\", OPTIONS+=\"link_priority=-100\"" >> /usr/lib/udev/rules.d/51-udev-rtc.rules
   fi
-  systemctl disable chrony
+  
 fi
 
 echo "###################################"
@@ -353,13 +377,41 @@ else
     echo "compat"
 fi
 
-echo "Add SP service"
-if ! grep -Fxq 'ExecStartPost=/usr/bin/sdptool add SP' /usr/lib/systemd/system/bluetooth.service
+if [ "$WiRocHWVersion" = "v3Rev2" ] || [ "$WiRocHWVersion" = "v4Rev1" ] || [ "$WiRocHWVersion" = "v6Rev1" ]
 then
-    echo "add SP profile"
-    sed -i '/ExecStart=.*/a ExecStartPost=/usr/bin/sdptool add SP' /usr/lib/systemd/system/bluetooth.service
-    systemctl daemon-reload
-else
-    echo "SP profile already exist"
+    echo "Add SP service"
+    if ! grep -Fxq 'ExecStartPost=/usr/bin/sdptool add SP' /usr/lib/systemd/system/bluetooth.service
+    then
+        echo "add SP profile"
+        sed -i '/ExecStart=.*/a ExecStartPost=/usr/bin/sdptool add SP' /usr/lib/systemd/system/bluetooth.service
+        systemctl daemon-reload
+    else
+        echo "SP profile already exist"
+    fi
 fi
+
+
+echo "###################################"
+echo "Install tailscale VPN"
+echo "###################################"
+
+# Create the standard directory for APT repository signing keys.
+mkdir -p --mode=0755 /usr/share/keyrings
+
+# Download Tailscale's public signing key.
+curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+
+# Add the Tailscale repository to APT's list of package sources
+curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list | tee /etc/apt/sources.list.d/tailscale.list
+
+apt-get update
+apt-get install tailscale
+
+# Script that starts tailscaled with parameters to advertise local ips and accept routes
+wget -O /usr/local/sbin/tailscale-auto-route.sh https://raw.githubusercontent.com/henla464/WiRoc-StartupScripts/master/tailscale-auto-route.sh
+chmod +x /usr/local/sbin/tailscale-auto-route.sh
+wget -O /etc/systemd/system/tailscale-auto-route.service https://raw.githubusercontent.com/henla464/WiRoc-StartupScripts/master/tailscale-auto-route.service
+
+# update when interface changes
+wget -O /etc/NetworkManager/dispatcher.d/90-tailscale-auto-route https://raw.githubusercontent.com/henla464/WiRoc-StartupScripts/master/90-tailscale-auto-route
 

@@ -1,6 +1,7 @@
 ### Specific to building Armbian ###
 /.vagrant/
 ubuntu-*-cloudimg-console.log
+/.seer/
 
 ### to ignore changes in a working copy
 .ignore_changes
@@ -21,6 +22,10 @@ ubuntu-*-cloudimg-console.log
 /userpatches/*
 !/userpatches/kernel
 !/userpatches/config-wiroc.conf
+!/userpatches/config-wiroc-nanopiair.conf
+!/userpatches/config-wiroc-esp32.conf
+!/userpatches/customize-image-host.sh
+!/userpatches/customize-image.sh
 !/userpatches/
 !/userpatches/overlay
 !/userpatches/config

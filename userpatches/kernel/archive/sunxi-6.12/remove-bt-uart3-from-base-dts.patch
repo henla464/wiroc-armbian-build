@@ -1,0 +1,28 @@
+diff --git a/arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts b/arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts
+--- a/arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts
++++ b/arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts
+@@ -216,24 +216,6 @@
+ 	status = "okay";
+ };
+ 
+-&uart3 {
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&uart3_pins>, <&uart3_rts_cts_pins>;
+-	uart-has-rtscts;
+-	status = "okay";
+-
+-	bluetooth {
+-		compatible = "brcm,bcm43438-bt";
+-		clocks = <&rtc CLK_OSC32K_FANOUT>;
+-		clock-names = "lpo";
+-		vbat-supply = <&reg_vcc3v3>;
+-		vddio-supply = <&reg_vcc3v3>;
+-		device-wakeup-gpios = <&pio 0 8 GPIO_ACTIVE_HIGH>; /* PA8 */
+-		host-wakeup-gpios = <&pio 0 7 GPIO_ACTIVE_HIGH>; /* PA7 */
+-		shutdown-gpios = <&pio 6 13 GPIO_ACTIVE_HIGH>; /* PG13 */
+-	};
+-};
+-
+ &usb_otg {
+ 	dr_mode = "peripheral";
+ 	status = "okay";

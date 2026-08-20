@@ -26,8 +26,13 @@ ubuntu-*-cloudimg-console.log
 !/userpatches/config-wiroc-esp32.conf
 !/userpatches/customize-image-host.sh
 !/userpatches/customize-image.sh
+!/userpatches/HowToCompile.txt
+!/userpatches/lib.config
+!/userpatches/ESPHOSTED-create-patch.sh
+!/userpatches/ESPHosted_Pins_Notes.txt
 !/userpatches/
 !/userpatches/overlay
+!/userpatches/extensions
 !/userpatches/config
 !/userpatches/config/kernel
 !/userpatches/config/kernel/linux-sunxi-current.config

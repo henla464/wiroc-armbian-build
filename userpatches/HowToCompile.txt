@@ -1,0 +1,160 @@
+===============================================================================
+WiRoc Armbian image — How to compile
+===============================================================================
+
+This tree builds a WiRoc image for the NanoPi Air (Allwinner H3, sunxi) in two
+hardware variants. Everything WiRoc (applications, systemd services, system
+tweaks) is baked into the image at BUILD TIME — no install script runs at first
+boot. The first boot only asks the user to set Wi-Fi, locale/timezone and their
+own passwords (root + chip). See the notes at the bottom.
+
+------------------------------------------------------------------------------
+1. Prerequisites
+------------------------------------------------------------------------------
+
+Build host (see the repo README for the full requirements):
+  - x86_64 or aarch64 Linux (Ubuntu 24.04 / Armbian / Debian), or Docker on any
+    Linux, or Windows 10/11 WSL2.
+  - >= 8 GB RAM and ~50 GB free disk.
+  - root or sudo.
+
+The build needs NETWORK ACCESS. It downloads packages from Debian/Armbian repos
+plus:
+  - github.com            (WiRoc installer scripts, services, reedsolomon)
+  - monitor.wiroc.se      (WiRoc release packages, requires the apikey)
+  - pkgs.tailscale.com    (tailscale)
+
+Required secret file (not committed to git):
+  - userpatches/overlay/apikey.txt   -> the WiRoc release API key.
+    The build FAILS if this file is missing (install-wiroc.sh aborts).
+
+------------------------------------------------------------------------------
+2. Build commands
+------------------------------------------------------------------------------
+
+Run from the repository root. A config is selected by passing its name
+(without the "config-" prefix and ".conf" suffix):
+
+  ./compile.sh wiroc-nanopiair     # NanoPi Air variant: on-board BCM43438 BT
+                                   #   (bt-uart3 overlay, no ESP32-SPI)
+
+  ./compile.sh wiroc-esp32         # ESP32-SPI variant: ESP32 module for Wi-Fi/BT
+                                   #   (spi-enable overlay + esp32_spi module)
+
+  ./compile.sh wiroc               # legacy/base config; defaults to the esp32
+                                   #   variant (no WIROC_VARIANT is set)
+
+These map to the files:
+  userpatches/config-wiroc.conf
+  userpatches/config-wiroc-nanopiair.conf
+  userpatches/config-wiroc-esp32.conf
+
+Docker build (instead of a native build on the host):
+
+  ./compile.sh docker wiroc-nanopiair
+  ./compile.sh docker wiroc-esp32
+
+------------------------------------------------------------------------------
+3. Choosing the hardware / software versions
+------------------------------------------------------------------------------
+
+The hardware version and WiRoc-Python-2 version baked into the image come from
+WIROC_HW_VERSION and WIROC_PYTHON_VERSION and are written to /root/settings.yaml
+and /home/chip/settings.yaml in the image. You do NOT need to edit settings.yaml
+manually anymore.
+
+  Defaults (set in the config files):       v8Rev2  /  1.46
+
+  Override on the command line (one-off):
+    ./compile.sh wiroc-nanopiair WIROC_HW_VERSION=v7Rev2   WIROC_PYTHON_VERSION=1.47
+    ./compile.sh wiroc-esp32      WIROC_HW_VERSION=v8Rev2  WIROC_PYTHON_VERSION=1.47
+
+  To change a default permanently, edit WIROC_HW_VERSION / WIROC_PYTHON_VERSION
+  in the config file.
+
+The hardware version selects build-time behaviour (RTC, Bluetooth SP profile,
+overlays) and is what the release installers query against monitor.wiroc.se.
+Both values are also used in the output image file name (see section 5).
+
+------------------------------------------------------------------------------
+4. Other settings
+------------------------------------------------------------------------------
+
+The remaining software settings are still taken from
+userpatches/overlay/settings.yaml:
+
+  WiRocDeviceName    device name written into /home/chip/settings.yaml
+  WiRocBLEAPIVersion WiRoc-BLE-API release version to install
+  WiRocHWVersion     fallback hardware version (overridden by WIROC_HW_VERSION)
+  WiRocPythonVersion fallback python version   (overridden by WIROC_PYTHON_VERSION)
+
+Wi-Fi / user / locale first-boot defaults are set in:
+  userpatches/extensions/preset-firstrun.sh
+(no default passwords are set — the user picks their own at first boot).
+
+IMPORTANT — /home must be kept in the image:
+  Armbian normally excludes /home/* from the final image (users are meant to be
+  created at first boot). The WiRoc stack lives in /home/chip, so the config
+  sets INCLUDE_HOME_DIR=yes. Do not remove it, or the baked software (and the
+  /home/chip directory) will be silently left out of the image.
+
+------------------------------------------------------------------------------
+5. Output
+------------------------------------------------------------------------------
+
+The finished image is written to:
+
+  output/images/
+
+The file name is built as (see userpatches/lib.config):
+
+  WiRoc_<hwversion>_<pythonversion>_<imageversion>-<release>_<branch>_<kernel>.img
+
+  e.g. WiRoc_v8Rev2_1.46_25.11.0-trunk-trixie_current_6.12.51.img
+
+Note: the board name ("Nanopiair") and the variant suffix ("-esp32" /
+"-nanopiair") are intentionally NOT in the name. If you build both variants with
+the same hardware + python versions, they produce the same file name and the
+second build overwrites the first in output/images/.
+
+Compression:
+  The config sets COMPRESS_OUTPUTIMAGE="sha,xz" so the .img is xz-compressed;
+  the final artefacts in output/images/ are the .img.xz plus its .img.xz.sha
+  checksum (the uncompressed .img is removed). IMAGE_XZ_COMPRESSION_RATIO="9e"
+  requests maximum compression (preset 9 + --extreme). Note that -9e is
+  memory-hungry: with multithreading (xz -T 0) it may use a few GB of RAM and
+  auto-reduce the thread count. On a machine with ~8 GB RAM the compression step
+  will still complete, just more slowly. To trade a little size for much lower
+  memory use, set IMAGE_XZ_COMPRESSION_RATIO="9".
+
+Flash the .img.xz (or the .img, if you build without compression) to an SD card,
+then see the first-boot notes below.
+
+
+------------------------------------------------------------------------------
+6. What happens at first boot
+------------------------------------------------------------------------------
+
+- The device connects to Wi-Fi (default SSID "WiRoc" / key "WiRocWiRoc", which
+  can be changed by editing /root/.not_logged_in_yet in the image beforehand).
+- armbian-firstlogin prompts the user to set the root password and the "chip"
+  user password (no default passwords — EU Radio Equipment Directive 2022/30).
+- Locale/timezone are applied from the presets (en_GB.UTF-8 / Europe/Stockholm).
+- The WiRoc services start automatically; no install/provisioning script runs.
+
+To pre-set passwords or Wi-Fi non-interactively, edit
+/root/.not_logged_in_yet in the image and add e.g.:
+
+  PRESET_ROOT_PASSWORD=...
+  PRESET_USER_PASSWORD=...
+  PRESET_NET_WIFI_SSID=...
+  PRESET_NET_WIFI_KEY=...
+
+------------------------------------------------------------------------------
+7. Cleaning / rebuilding
+------------------------------------------------------------------------------
+
+Armbian caches a lot under cache/ and output/. To force a clean rebuild of the
+root filesystem, remove the relevant cache/output directories or use the
+framework's clean options. A full build can take 30-60+ minutes, mostly spent in
+apt and the WiRoc install step (network download + pip builds).

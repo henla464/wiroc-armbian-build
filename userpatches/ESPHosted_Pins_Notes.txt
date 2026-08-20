@@ -1,0 +1,170 @@
+esp_hosted_ng/host/spi/esp_spi.h
+--------------------------------
+HANDSHAKE_PIN 203
+SPI_DATA_READY_ON 6
+
+
+esp_hosted_ng/host/spi/esp_spi.c
+--------------------------------
+SPI_INITIAL_CLK_MHZ 10
+
+esp_hosted_ng/host/main.c
+--------------------------------
+static int resetpin = HOST_GPIO_PIN_INVALID;
+
+
+==============================
+WiRoc V8
+==============================
+
+Wifi-HandShake: PG11 = 203 [ball D2] (needs IRQ, has IRQ)
+Wifi-DataReady: PA18 = 18  [ball B13] (needs IRQ, has IRQ) (PE14=142 doesnt have IRQ)
+Wifi-RST:       PE15 = 143 [ball C5] (doesn't need, doesn't have)
+
+Test if has irq: echo 143 | sudo tee /sys/class/gpio/export
+ls /sys/class/gpio/gpio143
+
+esp_hosted_ng/host/spi/esp_spi.h
+--------------------------------
+HANDSHAKE_PIN 203
+SPI_DATA_READY_PIN 18
+
+
+esp_hosted_ng/host/spi/esp_spi.c
+--------------------------------
+SPI_INITIAL_CLK_MHZ 10
+
+esp_hosted_ng/host/main.c
+--------------------------------
+static int resetpin = 143;
+
+
+
+Client/Slave side, ESP
+=======================
+
+CS (Chip select): 10 (IO10) Pin 12
+HS (Handshake): 3 (IO3) Pin 5
+DR (DataReady): 4 (IO4) Pin 17
+MISO: IO2 Pin 4
+MOSI: IO7 Pin 9
+SPI-SCLK: IO6 Pin 8
+
+
+cd /home/henla464/Documents/WiRoc/ESPHosted/esp-hosted/esp_hosted_ng/esp/esp_driver/network_adapter
+sudo apt-get install python3.12-venv
+sudo ./setup.sh
+
+Had to run:
+/home/henla464/.espressif/python_env/idf5.5_py3.12_env/bin/python /home/henla464/Documents/WiRoc/ESPHosted/esp-hosted/esp_hosted_ng/esp/esp_driver/esp-idf/tools/idf_tools.py install
+
+Before:
+. ./esp-idf/export.sh
+
+cd network_adaptor
+# change to spi and deassert
+idf.py set-target esp32c5
+idf.py menuconfig
+idf.py build
+
+Use the tag-connect to program the esp soldered to the wifi-module board. Don't have the wifi-module board connected to WiRoc, it will be powered through the tag-connect but it cannot power the whole wiroc board. You need to slow down the baud rate.
+
+idf.py -p /dev/ttyUSB1 -b 115200 flash
+
+
+==========================
+Handshake gpio 103 doesnt seem to be working...
+Armbinan build framework has this patch for dts: arm-dts-h3-nanopi-neo-air-Add-regulator-camera-wifi-bluetooth-o.patch
+in /home/henla464/Documents/WiRoc/wiroc-armbian-build/patch/kernel/archive/sunxi-6.12/patches.armbian
+modifying: arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts
+which include arm/boot/dts/allwinner/sun8i-h3.dtsi
+it includes sunxi-h3-h5.dtsi and sunxi-common-regulators.dtsi
+It references sun8i-h3-pinctrl
+
+Anyway the arm-dts-h3-nanopi-neo-air-Add-regulator-camera-wifi-bluetooth-o.patch declares &i2c2 and uses both PE14 (142) and PE15 (143)
+And the merged file could be found in:/home/henla464/Documents/WiRoc/wiroc-armbian-build/cache/sources/linux-kernel-worktree/6.12__sunxi__armhf/arch/arm/boot/dts/allwinner/sun8i-h3-nanopi-neo-air.dts
+
+
+
+--------
+GPIOa that have interrupt
+GPIOA 21:0
+GPIO G 13:0
+GPIO L 11:0
+
+==============
+
+Testing results
+[  143.986754] esp32_spi: spi_dev_init: Using SPI MODE 1
+[  143.987559] esp32_spi: spi_dev_init: Config - SPI GPIOs: Handshake[203] Dataready[18]
+[  143.987587] esp32_spi: spi_dev_init: Config - SPI clock[1MHz] bus[0] cs[0] mode[1]
+[  146.067911] esp32_spi: esp_validate_chipset: Chipset=ESP32-C5 ID=17 detected over SPI
+[  146.068049] esp32_spi: check_esp_version: ESP-Hosted Version: NG-1.0.6.0.1
+
+Seems to work
+Testing with sudo modprobe esp32_spi raw_tp_mode=2
+gives no errors in dmesg or on esp device and speed close to 900 kbits/sec
+[  456.952924] esp32_spi: log_raw_tp_stats_timer_cb: 302-303 sec       889 kbits/sec
+
+------
+
+[  143.986754] esp32_spi: spi_dev_init: Using SPI MODE 1
+[  143.987559] esp32_spi: spi_dev_init: Config - SPI GPIOs: Handshake[203] Dataready[18]
+[  143.987587] esp32_spi: spi_dev_init: Config - SPI clock[1MHz] bus[0] cs[0] mode[1]
+[  146.067911] esp32_spi: esp_validate_chipset: Chipset=ESP32-C5 ID=17 detected over SPI
+
+Testing with sudo modprobe esp32_spi raw_tp_mode=1
+give no errors on the esp but in dmesg
+[  146.068049] esp32_spi: check_esp_version: ESP-Hosted Version: NG-1.0.6.0.1
+[  673.559710] esp32_spi: log_raw_tp_stats_timer_cb: 55-56 sec       923 kbits/sec
+[  674.583704] esp32_spi: log_raw_tp_stats_timer_cb: 56-57 sec       923 kbits/sec
+[  675.575735] esp32_spi: wait_and_decode_cmd_resp: Command[0x4] timed out
+[  675.575802] esp32_spi: cmd_scan_request: wait_and_decode_cmd_resp(priv, cmd_node) failure, ret: -22
+[  675.607701] esp32_spi: log_raw_tp_stats_timer_cb: 57-58 sec       923 kbits/sec
+
+And then stops responding, seem to totally crash, have to restart linux
+
+sometimes gives this log:
+[  683.990066] esp32_spi: log_raw_tp_stats_timer_cb: 20-21 sec       923 kbits/sec
+               
+[  684.790092] esp32_spi: wait_and_decode_cmd_resp: Command[0xB] timed out
+[  684.790149] esp32_spi: cmd_auth_request: wait_and_decode_cmd_resp(priv, cmd_node) failure, ret: -22
+[  685.014062] esp32_spi: log_raw_tp_stats_timer_cb: 21-22 sec       923 kbits/sec
+               
+[  685.542050] rcu: INFO: rcu_sched self-detected stall on CPU
+[  685.542077] rcu: 	2-....: (5249 ticks this GP) idle=e904/1/0x40000002 softirq=15014/15014 fqs=2616
+[  685.542098] rcu: 	(t=5250 jiffies g=25149 q=369 ncpus=4)
+[  685.542117] CPU: 2 UID: 0 PID: 3610 Comm: raw tp thrd Tainted: G        WC         6.12.51-current-sunxi #20
+[  685.542130] Tainted: [W]=WARN, [C]=CRAP
+[  685.542134] Hardware name: Allwinner sun8i Family
+[  685.542138] PC is at __wait_for_common+0xe8/0x130
+[  685.542163] LR is at __wait_for_common+0x27/0x130
+[  685.542171] pc : [<c0b30334>]    lr : [<c0b30273>]    psr: 000f0033
+[  685.542177] sp : e08b5f20  ip : 00000000  fp : 7fffffff
+[  685.542182] r10: c2479b40  r9 : bf92f284  r8 : bf92f288
+[  685.542188] r7 : c0b33e01  r6 : 00000001  r5 : c6851e00  r4 : bf92f284
+[  685.542194] r3 : 0000c28c  r2 : 00000000  r1 : 00000000  r0 : 7fffffff
+[  685.542201] Flags: nzcv  IRQs on  FIQs on  Mode SVC_32  ISA Thumb  Segment none
+[  685.542209] Control: 50c5387d  Table: 4350006a  DAC: 00000051
+[  685.542214] Call trace: 
+[  685.542225]  __wait_for_common from wait_for_completion_interruptible+0x1b/0x24
+[  685.542243]  wait_for_completion_interruptible from raw_tp_tx_process+0x4f/0x12c [esp32_spi]
+[  685.542324]  raw_tp_tx_process [esp32_spi] from kthread+0xbf/0xd4
+[  685.542360]  kthread from ret_from_fork+0x11/0x1c
+[  685.542376] Exception stack(0xe08b5fb0 to 0xe08b5ff8)
+[  685.542385] 5fa0:                                     00000000 00000000 00000000 00000000
+[  685.542394] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  685.542402] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+
+
+
+
+Disabled autoconnect by removing netplan config in
+sudo nano /etc/netplan/30-wifis-dhcp.yaml
+
+But it still give same issue.
+
+Testing with MODE 2 on esp and MODE1 on host gives same results
+Testing with MODE2 on both esp and host gives same results
+
+

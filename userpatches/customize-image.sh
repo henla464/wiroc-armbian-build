@@ -44,18 +44,14 @@ Main() {
 	cp -f /tmp/overlay/armbian-firstlogin /usr/lib/armbian/
 	chmod +x /usr/lib/armbian/armbian-firstlogin
 
-	echo "copy install.sh to root"
-	cp -f /tmp/overlay/install.sh /root/
-	chmod +x /root/install.sh
+	# install.sh / provisioning-runmanually.sh are superseded: the WiRoc stack is
+	# now baked into the image at build time (see install-wiroc.sh below), so no
+	# install/provisioning script runs at first boot.
 
-	echo "copy provisioning.sh to root"
-	cp -f /tmp/overlay/provisioning-runmanually.sh /root/
-	chmod +x /root/provisioning-runmanually.sh
-
-	echo "copy settings.yaml to root"
+	echo "copy settings.yaml to root (input for install-wiroc.sh)"
 	cp -f /tmp/overlay/settings.yaml /root/
 
-	echo "copy apikey.txt to root"
+	echo "copy apikey.txt to root (input for install-wiroc.sh)"
 	cp -f /tmp/overlay/apikey.txt /root/
 
 	echo "Installing custom overlays..."
@@ -80,6 +76,9 @@ Main() {
 	fi
 	# Not sure if param_uart3_rtscts=1 is needed anymore
 	#sed -i '$a param_uart3_rtscts=1' /boot/armbianEnv.txt
+
+	echo "Baking WiRoc application stack into the image"
+	bash /tmp/overlay/install-wiroc.sh
 
 } # Main
 

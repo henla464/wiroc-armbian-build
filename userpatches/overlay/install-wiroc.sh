@@ -125,6 +125,10 @@ done
 log "Installing utilities and firmware"
 apt-get install -y net-tools i2c-tools zip libsqlite3-dev sqlite3 firmware-ath9k-htc
 
+# WiRoc-Python-2's /api/uploadlogarchive/ zips logs to /home/chip/LogArchive/...,
+# but zip does not create missing parent directories, so create it at build time.
+mkdir -p /home/chip/LogArchive
+
 # Enable IP forwarding for wifi mesh and tailscale
 cat > /etc/sysctl.d/99-ipforward.conf <<EOF
 net.ipv4.ip_forward = 1

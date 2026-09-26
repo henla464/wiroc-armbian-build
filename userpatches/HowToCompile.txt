@@ -63,11 +63,12 @@ WIROC_HW_VERSION and WIROC_PYTHON_VERSION and are written to /root/settings.yaml
 and /home/chip/settings.yaml in the image. You do NOT need to edit settings.yaml
 manually anymore.
 
-  Defaults (set in the config files):       v8Rev2  /  1.46
+  Defaults (set in the config files):       v8Rev2  /  1.50
 
   Override on the command line (one-off):
-    ./compile.sh wiroc-nanopiair WIROC_HW_VERSION=v7Rev2   WIROC_PYTHON_VERSION=1.47
-    ./compile.sh wiroc-esp32      WIROC_HW_VERSION=v8Rev2  WIROC_PYTHON_VERSION=1.47
+    ./compile.sh wiroc-nanopiair WIROC_HW_VERSION=v3Rev2 WIROC_PYTHON_VERSION=1.50
+    ./compile.sh wiroc-nanopiair WIROC_HW_VERSION=v7Rev2   WIROC_PYTHON_VERSION=1.50
+    ./compile.sh wiroc-esp32      WIROC_HW_VERSION=v8Rev2  WIROC_PYTHON_VERSION=1.50
 
   To change a default permanently, edit WIROC_HW_VERSION / WIROC_PYTHON_VERSION
   in the config file.

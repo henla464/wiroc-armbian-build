@@ -280,6 +280,14 @@ else
     if [[ ! -f /usr/lib/udev/rules.d/51-udev-rtc.rules ]]; then
         echo 'SUBSYSTEM=="rtc", DRIVERS=="rtc-pcf8563", SYMLINK+="rtc", OPTIONS+="link_priority=100"' > /usr/lib/udev/rules.d/51-udev-rtc.rules
     fi
+    # RTC write-back: copy an NTP-synced system clock into the pcf8563 a minute
+    # after boot and every 15 minutes, so it keeps the right time through a
+    # power-off. The script does nothing unless the clock is synchronised.
+    wget -q -O /home/chip/WiRoc-StartupScripts/wiroc-rtc-writeback.sh https://raw.githubusercontent.com/henla464/WiRoc-StartupScripts/master/wiroc-rtc-writeback.sh
+    chmod +x /home/chip/WiRoc-StartupScripts/wiroc-rtc-writeback.sh
+    wget -q -O /etc/systemd/system/wiroc-rtc-writeback.service https://raw.githubusercontent.com/henla464/WiRoc-StartupScripts/master/wiroc-rtc-writeback.service
+    wget -q -O /etc/systemd/system/wiroc-rtc-writeback.timer https://raw.githubusercontent.com/henla464/WiRoc-StartupScripts/master/wiroc-rtc-writeback.timer
+    systemctl --no-reload enable wiroc-rtc-writeback.timer
 fi
 
 ###################################
